@@ -1,10 +1,12 @@
 import express from "express";
+import cors from 'cors';
 import { config } from "dotenv";
 import productRoutes from "./routes/productRoute.js";
 import { errorHandler } from "./middlewares/errorMiddleware.js";
 import { connectDB } from "./db/connection.js";
 
 const app = express();
+app.use(cors());
 
 config();
 
