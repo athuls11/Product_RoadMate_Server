@@ -1,19 +1,16 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { client } from "../db/connection.js";
 
 export const createProduct = async (req, res, next) => {
   try {
     const { name } = req.body;
-    const newProduct = await prisma.product.create({
-      data: {
-        name,
-      },
-    });
+    const newProduct = await client.query(
+      "INSERT INTO product(name) VALUES($1) RETURNING *",
+      [name]
+    );
     return res.status(201).json({
       success: true,
       message: "Product created successfully.",
-      data: newProduct,
+      data: newProduct.rows[0],
     });
   } catch (error) {
     next(error);
@@ -23,57 +20,25 @@ export const createProduct = async (req, res, next) => {
 export const listAndSearchProducts = async (req, res, next) => {
   try {
     const { term } = req.query;
-    let products;
+    const query = "SELECT * FROM product";
+    const products = await client.query(query);
 
+    let filteredProducts = products.rows;
     if (term) {
       const keywords = term.split(" ").map((keyword) => keyword.toLowerCase());
-
-      products = await prisma.product.findMany({
-        where: {
-          AND: keywords.map((keyword) => ({
-            name: {
-              contains: keyword,
-              mode: "insensitive",
-            },
-          })),
-        },
+      filteredProducts = filteredProducts.filter((item) => {
+        return keywords.every((keyword) => {
+          return item.name.toLowerCase().includes(keyword);
+        });
       });
-    } else {
-      products = await prisma.product.findMany();
     }
-
     return res.status(200).json({
       success: true,
       message: "Products fetched successfully.",
-      data: products,
+      data: filteredProducts,
     });
   } catch (error) {
+    console.error("Error fetching products:", error);
     next(error);
   }
 };
-
-// export const listAndSearchProducts = async (req, res, next) => {
-//   try {
-//     const { term } = req.query;
-//     let products;
-
-//     if (term) {
-//       products = await prisma.product.findMany({
-//         where: {
-//           name: {
-//             contains: term.toString(),
-//           },
-//         },
-//       });
-//     } else {
-//       products = await prisma.product.findMany();
-//     }
-//     return res.status(200).json({
-//       success: true,
-//       message: "Fetch the products successfully.",
-//       data: products,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
