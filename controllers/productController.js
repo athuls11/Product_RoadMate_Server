@@ -1,32 +1,41 @@
-import { client } from "../db/connection.js";
+import { db } from "../db/connection.js";
 
 export const createProduct = async (req, res, next) => {
   try {
     const { name } = req.body;
-    const newProduct = await client.query(
-      "INSERT INTO product(name) VALUES($1) RETURNING *",
-      [name]
-    );
+    const sql = `INSERT INTO products (name) VALUES (?)`;
+    db.query(sql, [name]);
     return res.status(201).json({
       success: true,
       message: "Product created successfully.",
-      data: newProduct.rows[0],
     });
   } catch (error) {
-    next(error);
+    console.error("Error creating product:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
+    });
   }
 };
 
-export const listAndSearchProducts = async (req, res, next) => {
+export const listAndSearchProducts = async (req, res) => {
   try {
     const { term } = req.query;
-    const query = "SELECT * FROM product";
-    const products = await client.query(query);
+    const sql = "SELECT * FROM products";
+    const results = await new Promise((resolve, reject) => {
+      db.query(sql, (err, results) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(results);
+        }
+      });
+    });
 
-    let filteredProducts = products.rows;
+    let products = results.map((row) => ({ id: row.id, name: row.name }));
     if (term) {
       const keywords = term.split(" ").map((keyword) => keyword.toLowerCase());
-      filteredProducts = filteredProducts.filter((item) => {
+      products = products.filter((item) => {
         return keywords.every((keyword) => {
           return item.name.toLowerCase().includes(keyword);
         });
@@ -35,10 +44,13 @@ export const listAndSearchProducts = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: "Products fetched successfully.",
-      data: filteredProducts,
+      data: products,
     });
   } catch (error) {
     console.error("Error fetching products:", error);
-    next(error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
+    });
   }
 };
